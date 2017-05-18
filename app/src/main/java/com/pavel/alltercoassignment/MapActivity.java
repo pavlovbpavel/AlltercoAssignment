@@ -20,7 +20,6 @@ import android.support.v4.app.FragmentActivity;
 import android.support.v7.app.AlertDialog;
 import android.text.TextUtils;
 import android.util.Log;
-import android.widget.Toast;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
@@ -29,6 +28,7 @@ import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.GoogleMap.OnMapClickListener;
+import com.google.android.gms.maps.GoogleMap.OnMapLoadedCallback;
 import com.google.android.gms.maps.GoogleMap.OnMarkerClickListener;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
@@ -36,39 +36,42 @@ import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.pavel.alltercoassignment.data_base.DBManager;
+import com.pavel.alltercoassignment.data_base.DBManager.LocationsLoadedCallback;
 import com.pavel.alltercoassignment.model.LocationsManager;
+import com.pavel.alltercoassignment.model.MarkerLocation;
 
 import java.util.List;
 import java.util.Locale;
 
 import static android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS;
+import static com.pavel.alltercoassignment.Constants.KEY_LOCATION_ID;
 
 public class MapActivity extends FragmentActivity implements OnMapReadyCallback, GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener {
 
-    public static final String API_KEY = "AIzaSyAGiXIWn8PFu7jk01zbkKhCwb2OWizCJ8Y";
-    private GoogleMap map;
     private GoogleApiClient googleApiClient;
     private android.location.Location lastLocation;
     private AlertDialog alertDialog;
     LocationRequest locationRequest;
     LatLng currentLocationLatLon;
-    private Integer counter;
+    SupportMapFragment mapFragment;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_map);
+        Log.e("mainActivity", "on create");
 
         buildGoogleApiClient();
 
-        SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map);
-        mapFragment.getMapAsync(this);
-        counter = 0;
+         mapFragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map);
     }
 
     @Override
     protected void onStart() {
         super.onStart();
+        LocationsManager.getInstance().clearLocations();
+        mapFragment.getMapAsync(this);
         googleApiClient.connect();
     }
 
@@ -76,37 +79,66 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback,
     protected void onStop() {
         super.onStop();
         googleApiClient.disconnect();
+
     }
 
     @Override
-    public void onMapReady(GoogleMap googleMap) {
-        map = googleMap;
-        map.setMyLocationEnabled(true);
-        map.setOnMapClickListener(new OnMapClickListener() {
+    public void onMapReady(final GoogleMap googleMap) {
+        if (ActivityCompat.checkSelfPermission(this, permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
+        googleMap.setOnMapLoadedCallback(new OnMapLoadedCallback() {
+            @Override
+            public void onMapLoaded() {
+                DBManager.getInstance(getApplicationContext()).loadLocations(new LocationsLoadedCallback() {
+                    @Override
+                    public void onDatabaseLocationsLoaded() {
+                        if (googleMap != null) {
+                            for (MarkerLocation markerLocation : LocationsManager.getInstance().getLocations().values()) {
+                                googleMap.addMarker(new MarkerOptions().
+                                        position(new LatLng(markerLocation.getLat(), markerLocation.getLon())).
+                                        title(markerLocation.getAddress()).
+                                        icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED))).
+                                        setTag(markerLocation.getId());
+                                Log.e("map", "adding marker from load");
+                            }
+                        }
+                    }
+                });
+            }
+        });
+
+        googleMap.setMyLocationEnabled(true);
+        googleMap.setOnMapClickListener(new OnMapClickListener() {
             @Override
             public void onMapClick(LatLng latLng) {
                 Log.e("location", "map clicked");
-                Toast.makeText(getApplicationContext(), latLng.toString(), Toast.LENGTH_SHORT).show();
-                MarkerOptions markerOptions = new MarkerOptions();
-                markerOptions.position(latLng);
-                markerOptions.title("Current Position");
-                markerOptions.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_MAGENTA));
-                map.addMarker(markerOptions).setTag(counter);
-                LocationsManager.getInstance().getLocations().put(counter, getLocationInfo(latLng.latitude, latLng.longitude));
-                counter++;
+                MarkerLocation markerLocation = getLocationInfo(latLng.latitude, latLng.longitude);
+                markerLocation = DBManager.getInstance(MapActivity.this).addLocation(markerLocation);
+                if (markerLocation != null) {
+                    LocationsManager.getInstance().addLocation(markerLocation.getId(), markerLocation);
+
+                    MarkerOptions markerOptions = new MarkerOptions();
+                    markerOptions.position(latLng);
+                    markerOptions.title("Current Position");
+                    markerOptions.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED));
+                    googleMap.addMarker(markerOptions).setTag(markerLocation.getId());
+                }
             }
         });
 
-        map.setOnMarkerClickListener(new OnMarkerClickListener() {
+        googleMap.setOnMarkerClickListener(new OnMarkerClickListener() {
             @Override
             public boolean onMarkerClick(Marker marker) {
-                Toast.makeText(MapActivity.this,
-                        LocationsManager.getInstance().getLocations().get(marker.getTag()).toString(),
-                        Toast.LENGTH_SHORT).show();
+                if (marker.getTag() == null) return false;
+                Intent intent = new Intent(MapActivity.this, LocationDetailsActivity.class);
+                Bundle bundle = new Bundle();
+                bundle.putLong(KEY_LOCATION_ID, (Long) marker.getTag());
+                intent.putExtras(bundle);
+                startActivity(intent);
                 return true;
             }
         });
-
     }
 
     private void buildGoogleApiClient() {
@@ -168,8 +200,6 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback,
             locationProviders = Settings.Secure.getString(context.getContentResolver(), Settings.Secure.LOCATION_PROVIDERS_ALLOWED);
             return !TextUtils.isEmpty(locationProviders);
         }
-
-
     }
 
     public void showAlertDialog(String event) {
@@ -195,11 +225,12 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback,
         lastLocation = LocationServices.FusedLocationApi.getLastLocation(googleApiClient);
         if (lastLocation != null) {
             if (isLocationEnabled(this)) {
-                map.clear();
                 currentLocationLatLon = new LatLng(lastLocation.getLatitude(), lastLocation.getLongitude());
             } else {
                 showAlertDialog(ACTION_LOCATION_SOURCE_SETTINGS);
             }
+        } else {
+            showAlertDialog(ACTION_LOCATION_SOURCE_SETTINGS);
         }
         locationRequest = new LocationRequest();
         locationRequest.setInterval(5000);
@@ -213,48 +244,24 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback,
         });
     }
 
-    private String getCompleteAddressString(double LATITUDE, double LONGITUDE) {
-        String strAdd = "";
-        Geocoder geocoder = new Geocoder(this, Locale.getDefault());
-        try {
-            List<Address> addresses = geocoder.getFromLocation(LATITUDE, LONGITUDE, 1);
-            if (addresses != null) {
-                Address returnedAddress = addresses.get(0);
-                StringBuilder strReturnedAddress = new StringBuilder("");
-
-                strReturnedAddress.append(returnedAddress.getLongitude()).append("\n");
-                strReturnedAddress.append(returnedAddress.getLatitude()).append("\n");
-                strReturnedAddress.append(returnedAddress.getCountryName()).append("\n");
-                strReturnedAddress.append(returnedAddress.getLocality()).append("\n");
-                strReturnedAddress.append(returnedAddress.getThoroughfare());
-                strAdd = strReturnedAddress.toString();
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return strAdd;
-    }
-
-    private com.pavel.alltercoassignment.model.Location getLocationInfo(double latitude, double longitude) { //утрепах та taka gi copnah
-        com.pavel.alltercoassignment.model.Location location = null;
+    private MarkerLocation getLocationInfo(double latitude, double longitude) {
+        MarkerLocation markerLocation = null;
         Geocoder geocoder = new Geocoder(this, Locale.getDefault());
         try {
             List<Address> addresses = geocoder.getFromLocation(latitude, longitude, 1);
             if (addresses != null) {
                 Address returnedAddress = addresses.get(0);
 
-                location = new com.pavel.alltercoassignment.model.Location(
-                        counter,
+                markerLocation = new MarkerLocation(
                         (returnedAddress.getLocality() + ", " + returnedAddress.getThoroughfare()),
                         returnedAddress.getCountryName(),
                         returnedAddress.getLongitude(),
                         returnedAddress.getLatitude()
                 );
-                Log.e("location", "added\n" + location.toString());
             }
-        } catch (Exception e) {
+        } catch (Exception e) { //todo catch exceptions independantly
             e.printStackTrace();
         }
-        return location;
+        return markerLocation;
     }
 }

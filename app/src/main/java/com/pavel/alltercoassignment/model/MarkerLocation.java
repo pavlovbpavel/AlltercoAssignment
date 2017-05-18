@@ -6,23 +6,28 @@ import java.io.Serializable;
  * Created by Pavel Pavlov on 5/18/2017.
  */
 
-public class Location implements Serializable{
+public class MarkerLocation implements Serializable {
 
-    private int id;
+    private long id;
     private String address;
     private String country;
     private double lon;
     private double lat;
 
-    public Location(int id, String address, String country, double lon, double lat) {
-        this.id = id;
+    public MarkerLocation(String address, String country, double lon, double lat) {
         this.address = address;
         this.country = country;
         this.lon = lon;
         this.lat = lat;
     }
 
-    public int getId() {
+    public MarkerLocation(long id, String address, String country, double lon, double lat) {
+        this(address, country, lon, lat);
+        this.id = id;
+    }
+
+
+    public long getId() {
         return id;
     }
 
@@ -46,13 +51,8 @@ public class Location implements Serializable{
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        Location location = (Location) o;
-        return id == location.id;
-    }
-
-    @Override
-    public int hashCode() {
-        return id;
+        MarkerLocation markerLocation = (MarkerLocation) o;
+        return id == markerLocation.id;
     }
 
     @Override
@@ -62,5 +62,9 @@ public class Location implements Serializable{
                 "Country: " + getCountry() + "\n" +
                 "Lon: " + getLon() + "\n" +
                 "Lat: " + getLat();
+    }
+
+    public void setId(long id) {
+        this.id = id;
     }
 }
