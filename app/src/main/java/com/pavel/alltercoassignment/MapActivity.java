@@ -1,10 +1,13 @@
 package com.pavel.alltercoassignment;
 
 import android.Manifest;
+import android.Manifest.permission;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.location.Address;
+import android.location.Geocoder;
 import android.location.Location;
 import android.os.Build;
 import android.os.Bundle;
@@ -16,6 +19,8 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.FragmentActivity;
 import android.support.v7.app.AlertDialog;
 import android.text.TextUtils;
+import android.util.Log;
+import android.widget.Toast;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
@@ -24,21 +29,30 @@ import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.GoogleMap.OnMapClickListener;
+import com.google.android.gms.maps.GoogleMap.OnMarkerClickListener;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.Marker;
+import com.google.android.gms.maps.model.MarkerOptions;
+import com.pavel.alltercoassignment.model.LocationsManager;
+
+import java.util.List;
+import java.util.Locale;
 
 import static android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS;
 
 public class MapActivity extends FragmentActivity implements OnMapReadyCallback, GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener {
 
+    public static final String API_KEY = "AIzaSyAGiXIWn8PFu7jk01zbkKhCwb2OWizCJ8Y";
     private GoogleMap map;
     private GoogleApiClient googleApiClient;
-    private Location lastLocation;
+    private android.location.Location lastLocation;
     private AlertDialog alertDialog;
     LocationRequest locationRequest;
     LatLng currentLocationLatLon;
-    public static final String API_KEY = "AIzaSyAGiXIWn8PFu7jk01zbkKhCwb2OWizCJ8Y";
+    private Integer counter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -47,11 +61,9 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback,
 
         buildGoogleApiClient();
 
-        // Obtain the SupportMapFragment and get notified when the map is ready to be used.
-        SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
-                .findFragmentById(R.id.map);
+        SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
-
+        counter = 0;
     }
 
     @Override
@@ -73,9 +85,28 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback,
         map.setOnMapClickListener(new OnMapClickListener() {
             @Override
             public void onMapClick(LatLng latLng) {
-
+                Log.e("location", "map clicked");
+                Toast.makeText(getApplicationContext(), latLng.toString(), Toast.LENGTH_SHORT).show();
+                MarkerOptions markerOptions = new MarkerOptions();
+                markerOptions.position(latLng);
+                markerOptions.title("Current Position");
+                markerOptions.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_MAGENTA));
+                map.addMarker(markerOptions).setTag(counter);
+                LocationsManager.getInstance().getLocations().put(counter, getLocationInfo(latLng.latitude, latLng.longitude));
+                counter++;
             }
         });
+
+        map.setOnMarkerClickListener(new OnMarkerClickListener() {
+            @Override
+            public boolean onMarkerClick(Marker marker) {
+                Toast.makeText(MapActivity.this,
+                        LocationsManager.getInstance().getLocations().get(marker.getTag()).toString(),
+                        Toast.LENGTH_SHORT).show();
+                return true;
+            }
+        });
+
     }
 
     private void buildGoogleApiClient() {
@@ -158,6 +189,9 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback,
     }
 
     private void trackLocation() {
+        if (ActivityCompat.checkSelfPermission(this, permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
         lastLocation = LocationServices.FusedLocationApi.getLastLocation(googleApiClient);
         if (lastLocation != null) {
             if (isLocationEnabled(this)) {
@@ -177,5 +211,50 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback,
                 currentLocationLatLon = new LatLng(location.getLatitude(), location.getLongitude());
             }
         });
+    }
+
+    private String getCompleteAddressString(double LATITUDE, double LONGITUDE) {
+        String strAdd = "";
+        Geocoder geocoder = new Geocoder(this, Locale.getDefault());
+        try {
+            List<Address> addresses = geocoder.getFromLocation(LATITUDE, LONGITUDE, 1);
+            if (addresses != null) {
+                Address returnedAddress = addresses.get(0);
+                StringBuilder strReturnedAddress = new StringBuilder("");
+
+                strReturnedAddress.append(returnedAddress.getLongitude()).append("\n");
+                strReturnedAddress.append(returnedAddress.getLatitude()).append("\n");
+                strReturnedAddress.append(returnedAddress.getCountryName()).append("\n");
+                strReturnedAddress.append(returnedAddress.getLocality()).append("\n");
+                strReturnedAddress.append(returnedAddress.getThoroughfare());
+                strAdd = strReturnedAddress.toString();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return strAdd;
+    }
+
+    private com.pavel.alltercoassignment.model.Location getLocationInfo(double latitude, double longitude) { //утрепах та taka gi copnah
+        com.pavel.alltercoassignment.model.Location location = null;
+        Geocoder geocoder = new Geocoder(this, Locale.getDefault());
+        try {
+            List<Address> addresses = geocoder.getFromLocation(latitude, longitude, 1);
+            if (addresses != null) {
+                Address returnedAddress = addresses.get(0);
+
+                location = new com.pavel.alltercoassignment.model.Location(
+                        counter,
+                        (returnedAddress.getLocality() + ", " + returnedAddress.getThoroughfare()),
+                        returnedAddress.getCountryName(),
+                        returnedAddress.getLongitude(),
+                        returnedAddress.getLatitude()
+                );
+                Log.e("location", "added\n" + location.toString());
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return location;
     }
 }
