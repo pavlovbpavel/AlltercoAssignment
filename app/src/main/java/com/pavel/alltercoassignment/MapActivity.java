@@ -19,22 +19,25 @@ import android.text.TextUtils;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.location.LocationListener;
+import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
-import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
+import com.google.android.gms.maps.GoogleMap.OnMapClickListener;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
-import com.google.android.gms.maps.model.MarkerOptions;
 
 import static android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS;
 
 public class MapActivity extends FragmentActivity implements OnMapReadyCallback, GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener {
 
-    private GoogleMap mMap;
-    private GoogleApiClient mGoogleApiClient;
-    Location mLastLocation;
+    private GoogleMap map;
+    private GoogleApiClient googleApiClient;
+    private Location lastLocation;
     private AlertDialog alertDialog;
+    LocationRequest locationRequest;
+    LatLng currentLocationLatLon;
     public static final String API_KEY = "AIzaSyAGiXIWn8PFu7jk01zbkKhCwb2OWizCJ8Y";
 
     @Override
@@ -54,23 +57,30 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback,
     @Override
     protected void onStart() {
         super.onStart();
-        mGoogleApiClient.connect();
+        googleApiClient.connect();
     }
 
     @Override
     protected void onStop() {
         super.onStop();
-        mGoogleApiClient.disconnect();
+        googleApiClient.disconnect();
     }
 
     @Override
     public void onMapReady(GoogleMap googleMap) {
-        mMap = googleMap;
+        map = googleMap;
+        map.setMyLocationEnabled(true);
+        map.setOnMapClickListener(new OnMapClickListener() {
+            @Override
+            public void onMapClick(LatLng latLng) {
+
+            }
+        });
     }
 
     private void buildGoogleApiClient() {
-        if (mGoogleApiClient == null) {
-            mGoogleApiClient = new GoogleApiClient.Builder(this)
+        if (googleApiClient == null) {
+            googleApiClient = new GoogleApiClient.Builder(this)
                     .addConnectionCallbacks(this)
                     .addOnConnectionFailedListener(this)
                     .addApi(LocationServices.API)
@@ -86,17 +96,7 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback,
                 requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 123);
             }
         } else { //has permission
-            mLastLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
-            if (mLastLocation != null) {
-                if (isLocationEnabled(this)) {
-                    //get current location lat/lon
-                    LatLng currentLocation = new LatLng(mLastLocation.getLatitude(), mLastLocation.getLongitude());
-                    mMap.addMarker(new MarkerOptions().position(currentLocation));
-                    mMap.moveCamera(CameraUpdateFactory.newLatLng(currentLocation));
-                } else {
-                    showAlertDialog(ACTION_LOCATION_SOURCE_SETTINGS);
-                }
-            }
+            trackLocation();
         }
     }
 
@@ -104,17 +104,7 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback,
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         if (requestCode == 123) {
             if (grantResults.length == 1 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                mLastLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
-                if (mLastLocation != null) { // from location services
-                    if (isLocationEnabled(this)) {
-                        //get current location lat/lon
-                        LatLng currentLocation = new LatLng(mLastLocation.getLatitude(), mLastLocation.getLongitude());
-                        mMap.addMarker(new MarkerOptions().position(currentLocation));
-                        mMap.moveCamera(CameraUpdateFactory.newLatLng(currentLocation));
-                    } else {
-                        showAlertDialog(ACTION_LOCATION_SOURCE_SETTINGS);
-                    }
-                }
+                trackLocation();
             }
         }
     }
@@ -165,5 +155,27 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback,
             alertDialog = builder.create();
             alertDialog.show();
         }
+    }
+
+    private void trackLocation() {
+        lastLocation = LocationServices.FusedLocationApi.getLastLocation(googleApiClient);
+        if (lastLocation != null) {
+            if (isLocationEnabled(this)) {
+                map.clear();
+                currentLocationLatLon = new LatLng(lastLocation.getLatitude(), lastLocation.getLongitude());
+            } else {
+                showAlertDialog(ACTION_LOCATION_SOURCE_SETTINGS);
+            }
+        }
+        locationRequest = new LocationRequest();
+        locationRequest.setInterval(5000);
+        locationRequest.setFastestInterval(3000);
+        locationRequest.setPriority(LocationRequest.PRIORITY_BALANCED_POWER_ACCURACY);
+        LocationServices.FusedLocationApi.requestLocationUpdates(googleApiClient, locationRequest, new LocationListener() {
+            @Override
+            public void onLocationChanged(Location location) {
+                currentLocationLatLon = new LatLng(location.getLatitude(), location.getLongitude());
+            }
+        });
     }
 }
