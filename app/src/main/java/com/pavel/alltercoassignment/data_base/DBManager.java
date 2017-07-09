@@ -7,7 +7,6 @@ import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.os.AsyncTask;
 import android.support.annotation.Nullable;
-import android.util.Log;
 
 import com.pavel.alltercoassignment.model.LocationsManager;
 import com.pavel.alltercoassignment.model.MarkerLocation;
@@ -19,16 +18,16 @@ import com.pavel.alltercoassignment.model.MarkerLocation;
 public class DBManager extends SQLiteOpenHelper {
 
     private static DBManager ourInstance;
-    private static Context context;
+    protected static Context context;
 
-    public static final String DATABASE_NAME = "AllterkoAssignment.db";
+    private static final String DATABASE_NAME = "AllterkoAssignment.db";
 
-    public static final String TABLE_LOCATIONS = "Locations";
-    public static final String COL_LOCATION_ID = "LOCATION_ID";
-    public static final String COL_ADDRESS = "ADDRESS";
-    public static final String COL_COUNTRY = "COUNTRY";
-    public static final String COL_LAT = "LAT";
-    public static final String COL_LONG = "LONG";
+    private static final String TABLE_LOCATIONS = "Locations";
+    private static final String COL_LOCATION_ID = "LOCATION_ID";
+    private static final String COL_ADDRESS = "ADDRESS";
+    private static final String COL_COUNTRY = "COUNTRY";
+    private static final String COL_LAT = "LAT";
+    private static final String COL_LONG = "LONG";
 
     private static final String SQL_CREATE_LOCATIONS = "CREATE TABLE IF NOT EXISTS Locations (\n" +
             " LOCATION_ID INTEGER PRIMARY KEY AUTOINCREMENT,\n" +
@@ -62,7 +61,6 @@ public class DBManager extends SQLiteOpenHelper {
     @Nullable
     public MarkerLocation addLocation(MarkerLocation markerLocation) {
         if (markerLocation == null) return null;
-        Log.e("DB", "adding location");
 
         ContentValues contentValues = new ContentValues();
         contentValues.put(COL_ADDRESS, markerLocation.getAddress());
@@ -70,23 +68,27 @@ public class DBManager extends SQLiteOpenHelper {
         contentValues.put(COL_LAT, markerLocation.getLat());
         contentValues.put(COL_LONG, markerLocation.getLon());
 
-
         long id = getWritableDatabase().insert(TABLE_LOCATIONS, null, contentValues);
         markerLocation.setId((id));
 
-        Log.e("DB", "added location with id: " + id);
         return markerLocation;
     }
 
 
     public void loadLocations(final LocationsLoadedCallback callback) {
-        //select from users and fill in collection
-
         new AsyncTask<Void, Void, Void>() {
+
+            @Override
+            protected void onPreExecute() {
+                super.onPreExecute();
+                LocationsManager.getInstance().getLocations().clear();
+            }
+
             @Override
             protected Void doInBackground(Void... params) {
 
                 Cursor cursor = ourInstance.getWritableDatabase().rawQuery("SELECT * FROM Locations;", null);
+
                 while (cursor.moveToNext()) {
                     int id = cursor.getInt(cursor.getColumnIndex(COL_LOCATION_ID));
                     String address = cursor.getString(cursor.getColumnIndex(COL_ADDRESS));
@@ -94,12 +96,9 @@ public class DBManager extends SQLiteOpenHelper {
                     double lat = cursor.getDouble(cursor.getColumnIndex(COL_LAT));
                     double lon = cursor.getDouble(cursor.getColumnIndex(COL_LONG));
 
-
                     MarkerLocation markerLocation = new MarkerLocation(id, address, country, lon, lat);
-
                     LocationsManager.getInstance().addLocation(id, markerLocation);
                 }
-                    Log.e("DB", "laoded 1");
                 cursor.close();
                 return null;
             }
@@ -107,15 +106,24 @@ public class DBManager extends SQLiteOpenHelper {
             @Override
             protected void onPostExecute(Void aVoid) {
                 super.onPostExecute(aVoid);
-                Log.e("DB", "laoded 2");
-                if(callback != null){
+                if (callback != null) {
                     callback.onDatabaseLocationsLoaded();
                 }
             }
         }.execute();
     }
 
-    public interface LocationsLoadedCallback{
+    public void updateLocation(MarkerLocation markerLocation) {
+
+        String sql = "UPDATE Locations SET ADDRESS = '" + markerLocation.getAddress() + "'," +
+                " COUNTRY = '" + markerLocation.getCountry() + "'," +
+                " LAT = '" + markerLocation.getLat() + "', " +
+                " LONG = '" + markerLocation.getLon() + "' WHERE LOCATION_ID = '" + markerLocation.getId() + "';";
+
+        ourInstance.getWritableDatabase().execSQL(sql);
+    }
+
+    public interface LocationsLoadedCallback {
         void onDatabaseLocationsLoaded();
     }
 }

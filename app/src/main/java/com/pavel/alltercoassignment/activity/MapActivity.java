@@ -1,4 +1,4 @@
-package com.pavel.alltercoassignment;
+package com.pavel.alltercoassignment.activity;
 
 import android.Manifest;
 import android.Manifest.permission;
@@ -19,7 +19,6 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.FragmentActivity;
 import android.support.v7.app.AlertDialog;
 import android.text.TextUtils;
-import android.util.Log;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
@@ -36,11 +35,13 @@ import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.pavel.alltercoassignment.R;
 import com.pavel.alltercoassignment.data_base.DBManager;
 import com.pavel.alltercoassignment.data_base.DBManager.LocationsLoadedCallback;
 import com.pavel.alltercoassignment.model.LocationsManager;
 import com.pavel.alltercoassignment.model.MarkerLocation;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Locale;
 
@@ -50,21 +51,18 @@ import static com.pavel.alltercoassignment.Constants.KEY_LOCATION_ID;
 public class MapActivity extends FragmentActivity implements OnMapReadyCallback, GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener {
 
     private GoogleApiClient googleApiClient;
-    private android.location.Location lastLocation;
-    private AlertDialog alertDialog;
-    LocationRequest locationRequest;
-    LatLng currentLocationLatLon;
-    SupportMapFragment mapFragment;
+    protected LatLng currentLocationLatLon;
+    protected SupportMapFragment mapFragment;
+    private GoogleMap map;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_map);
-        Log.e("mainActivity", "on create");
 
         buildGoogleApiClient();
 
-         mapFragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map);
+        mapFragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map);
     }
 
     @Override
@@ -79,12 +77,13 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback,
     protected void onStop() {
         super.onStop();
         googleApiClient.disconnect();
-
     }
 
     @Override
     public void onMapReady(final GoogleMap googleMap) {
-        if (ActivityCompat.checkSelfPermission(this, permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+        map = googleMap;
+        if (ActivityCompat.checkSelfPermission(this, permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
+                ActivityCompat.checkSelfPermission(this, permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             return;
         }
         googleMap.setOnMapLoadedCallback(new OnMapLoadedCallback() {
@@ -100,7 +99,6 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback,
                                         title(markerLocation.getAddress()).
                                         icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED))).
                                         setTag(markerLocation.getId());
-                                Log.e("map", "adding marker from load");
                             }
                         }
                     }
@@ -112,12 +110,10 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback,
         googleMap.setOnMapClickListener(new OnMapClickListener() {
             @Override
             public void onMapClick(LatLng latLng) {
-                Log.e("location", "map clicked");
                 MarkerLocation markerLocation = getLocationInfo(latLng.latitude, latLng.longitude);
                 markerLocation = DBManager.getInstance(MapActivity.this).addLocation(markerLocation);
                 if (markerLocation != null) {
                     LocationsManager.getInstance().addLocation(markerLocation.getId(), markerLocation);
-
                     MarkerOptions markerOptions = new MarkerOptions();
                     markerOptions.position(latLng);
                     markerOptions.title("Current Position");
@@ -158,7 +154,7 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback,
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 123);
             }
-        } else { //has permission
+        } else {
             trackLocation();
         }
     }
@@ -168,6 +164,9 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback,
         if (requestCode == 123) {
             if (grantResults.length == 1 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 trackLocation();
+                if (map != null) {
+                    onMapReady(map);
+                }
             }
         }
     }
@@ -189,50 +188,45 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback,
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
             try {
                 locationMode = Settings.Secure.getInt(context.getContentResolver(), Settings.Secure.LOCATION_MODE);
-
             } catch (SettingNotFoundException e) {
-                e.printStackTrace();
                 return false;
             }
             return locationMode != Settings.Secure.LOCATION_MODE_OFF;
-
         } else {
             locationProviders = Settings.Secure.getString(context.getContentResolver(), Settings.Secure.LOCATION_PROVIDERS_ALLOWED);
             return !TextUtils.isEmpty(locationProviders);
         }
     }
 
-    public void showAlertDialog(String event) {
+    public void buildLocationAlertDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        if (event.equals(ACTION_LOCATION_SOURCE_SETTINGS)) {
-            builder.setTitle("Location services are off");
-            builder.setMessage("Please turn on location services to continue");
-            builder.setCancelable(false);
-            builder.setPositiveButton("Turn on location", new DialogInterface.OnClickListener() {
-                public void onClick(DialogInterface dialog, int id) {
-                    startActivity(new Intent(ACTION_LOCATION_SOURCE_SETTINGS));
-                }
-            });
-            alertDialog = builder.create();
-            alertDialog.show();
-        }
+        builder.setTitle("Location services are off");
+        builder.setMessage("Please turn on location services to continue");
+        builder.setCancelable(false);
+        builder.setPositiveButton("Turn on location", new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int id) {
+                startActivity(new Intent(ACTION_LOCATION_SOURCE_SETTINGS));
+            }
+        });
+        AlertDialog alertDialog = builder.create();
+        alertDialog.show();
     }
 
     private void trackLocation() {
         if (ActivityCompat.checkSelfPermission(this, permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             return;
         }
-        lastLocation = LocationServices.FusedLocationApi.getLastLocation(googleApiClient);
+        Location lastLocation = LocationServices.FusedLocationApi.getLastLocation(googleApiClient);
         if (lastLocation != null) {
             if (isLocationEnabled(this)) {
                 currentLocationLatLon = new LatLng(lastLocation.getLatitude(), lastLocation.getLongitude());
             } else {
-                showAlertDialog(ACTION_LOCATION_SOURCE_SETTINGS);
+                buildLocationAlertDialog();
             }
         } else {
-            showAlertDialog(ACTION_LOCATION_SOURCE_SETTINGS);
+            buildLocationAlertDialog();
         }
-        locationRequest = new LocationRequest();
+        LocationRequest locationRequest = new LocationRequest();
         locationRequest.setInterval(5000);
         locationRequest.setFastestInterval(3000);
         locationRequest.setPriority(LocationRequest.PRIORITY_BALANCED_POWER_ACCURACY);
@@ -251,7 +245,6 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback,
             List<Address> addresses = geocoder.getFromLocation(latitude, longitude, 1);
             if (addresses != null) {
                 Address returnedAddress = addresses.get(0);
-
                 markerLocation = new MarkerLocation(
                         (returnedAddress.getLocality() + ", " + returnedAddress.getThoroughfare()),
                         returnedAddress.getCountryName(),
@@ -259,9 +252,10 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback,
                         returnedAddress.getLatitude()
                 );
             }
-        } catch (Exception e) { //todo catch exceptions independantly
-            e.printStackTrace();
+        } catch (IOException ioe) {
+            markerLocation = new MarkerLocation(longitude, latitude);
+        } finally {
+            return markerLocation;
         }
-        return markerLocation;
     }
 }

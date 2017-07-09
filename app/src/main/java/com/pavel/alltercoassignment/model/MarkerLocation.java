@@ -14,18 +14,21 @@ public class MarkerLocation implements Serializable {
     private double lon;
     private double lat;
 
-    public MarkerLocation(String address, String country, double lon, double lat) {
-        this.address = address;
-        this.country = country;
+    public MarkerLocation(double lon, double lat) {
         this.lon = lon;
         this.lat = lat;
+    }
+
+    public MarkerLocation(String address, String country, double lon, double lat) {
+        this(lon, lat);
+        this.address = address;
+        this.country = country;
     }
 
     public MarkerLocation(long id, String address, String country, double lon, double lat) {
         this(address, country, lon, lat);
         this.id = id;
     }
-
 
     public long getId() {
         return id;
@@ -35,16 +38,32 @@ public class MarkerLocation implements Serializable {
         return address;
     }
 
+    public void setAddress(String address) {
+        this.address = address;
+    }
+
     public String getCountry() {
         return country;
+    }
+
+    public void setCountry(String country) {
+        this.country = country;
     }
 
     public double getLon() {
         return lon;
     }
 
+    public void setLon(double lon) {
+        this.lon = lon;
+    }
+
     public double getLat() {
         return lat;
+    }
+
+    public void setLat(double lat) {
+        this.lat = lat;
     }
 
     @Override

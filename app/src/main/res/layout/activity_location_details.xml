@@ -4,38 +4,135 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context="com.pavel.alltercoassignment.LocationDetailsActivity">
+    tools:context="com.pavel.alltercoassignment.activity.LocationDetailsActivity">
 
     <TextView
-        android:gravity="center"
-        android:id="@+id/location_details_tv"
+        android:id="@+id/addressLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="32dp"
+        android:layout_marginTop="16dp"
+        android:gravity="center_vertical"
+        android:text="Address: "
+        android:textSize="14sp"/>
+
+    <EditText
+        android:id="@+id/addressValue"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignBaseline="@+id/addressLabel"
+        android:layout_alignParentRight="true"
+        android:layout_marginLeft="6dp"
+        android:layout_marginRight="6dp"
+        android:layout_toRightOf="@id/addressLabel"
+        android:hint="Address"
+        android:inputType="text"
+        android:textColor="@android:color/black"
+        android:textSize="16sp"/>
+
+    <TextView
+        android:id="@+id/countryLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="32dp"
+        android:layout_below="@id/addressLabel"
+        android:gravity="center_vertical"
+        android:text="Country: "
+        android:textSize="14sp"/>
+
+    <EditText
+        android:id="@+id/countryValue"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignBaseline="@+id/countryLabel"
+        android:layout_alignParentRight="true"
+        android:layout_marginLeft="6dp"
+        android:layout_marginRight="6dp"
+        android:layout_toRightOf="@id/countryLabel"
+        android:hint="Country"
+        android:inputType="text"
+        android:textColor="@android:color/black"
+        android:textSize="16sp"/>
+
+    <TextView
+        android:id="@+id/lonLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="32dp"
+        android:layout_below="@id/countryLabel"
+        android:gravity="center_vertical"
+        android:text="Longitude: "
+        android:textSize="14sp"/>
+
+    <EditText
+        android:id="@+id/lonValue"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignBaseline="@+id/lonLabel"
+        android:layout_alignParentRight="true"
+        android:layout_marginLeft="6dp"
+        android:layout_marginRight="6dp"
+        android:layout_toRightOf="@id/lonLabel"
+        android:hint="Longitute"
+        android:inputType="text"
+        android:textColor="@android:color/black"
+        android:textSize="16sp"/>
+
+    <TextView
+        android:id="@+id/latLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="32dp"
+        android:layout_below="@id/lonLabel"
+        android:gravity="center_vertical"
+        android:text="Latitude: "
+        android:textSize="14sp"/>
+
+    <EditText
+        android:id="@+id/latValue"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignBaseline="@+id/latLabel"
+        android:layout_alignParentRight="true"
+        android:layout_marginLeft="6dp"
+        android:layout_marginRight="6dp"
+        android:layout_toRightOf="@id/latLabel"
+        android:hint="Latitude"
+        android:inputType="text"
+        android:textColor="@android:color/black"
+        android:textSize="16sp"/>
+
+    <Button
+        android:id="@+id/saveButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/latValue"
+        android:layout_centerHorizontal="true"
+        android:text="Save changes"
+        android:visibility="gone"/>
+
+    <View
+        android:id="@+id/vSeparator"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"/>
+        android:layout_height="1dp"
+        android:layout_below="@id/saveButton"
+        android:layout_marginBottom="8dp"
+        android:layout_marginTop="8dp"
+        android:alpha="0.54"
+        android:background="@android:color/black"/>
 
-    <Button
-        android:id="@+id/picture_btn"
-        android:text="take photo"
+    <android.support.v7.widget.RecyclerView
+        android:id="@+id/photo_grid"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_alignParentBottom="true"
+        android:layout_below="@id/vSeparator"/>
+
+    <TextView
+        android:id="@+id/tvNoPhotos"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_below="@+id/location_details_tv"
+        android:layout_height="0dp"
+        android:layout_alignParentBottom="true"
+        android:layout_below="@id/vSeparator"
         android:layout_centerHorizontal="true"
-        android:layout_marginTop="10dp"/>
-
-    <Button
-        android:id="@+id/gallery_btn"
-        android:text="open gallery"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_below="@+id/picture_btn"
-        android:layout_centerHorizontal="true"
-        android:layout_marginTop="10dp"/>
-
-    <ImageView
-        android:id="@+id/location_photo"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_below="@+id/gallery_btn"
-        android:layout_centerHorizontal="true"
-        android:layout_marginTop="10dp"/>
-
+        android:gravity="center"
+        android:text="There are no photos for this place"
+        android:textSize="18sp"
+        android:visibility="gone"/>
 </RelativeLayout>
